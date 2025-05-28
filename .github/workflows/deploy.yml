@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      AWS_REGION: ap-northeast-2
       ECR_REGISTRY: 486677509303.dkr.ecr.ap-northeast-2.amazonaws.com
       IMAGE_REPO_NAME: js-fastapi-monitoring
 
@@ -26,24 +25,25 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ap-northeast-2
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build and push Docker image
+      - name: Build and Push Docker Image to ECR
         run: |
           docker build -t $ECR_REGISTRY/$IMAGE_REPO_NAME:latest .
           docker push $ECR_REGISTRY/$IMAGE_REPO_NAME:latest
 
-      - name: Deploy to EC2 via SSH
+      - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_KEY }}
           script: |
-            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 486677509303.dkr.ecr.ap-northeast-2.amazonaws.com
-            docker pull $ECR_REGISTRY/$IMAGE_REPO_NAME:latest
-            docker stop js-fastapi-monitoring || true && docker rm js-fastapi-monitoring || true
-            docker run -d --name js-fastapi-monitoring -p 5050:80 $ECR_REGISTRY/$IMAGE_REPO_NAME:latest
+            cd ~/js-fastapi-monitoring
+            git pull origin main
+            docker-compose pull
+            docker-compose down
+            docker-compose up -d
